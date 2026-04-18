@@ -37,7 +37,7 @@ service cloud.firestore {
 
     function isTeacherOf(studentId) {
       let student = get(/databases/$(database)/documents/users/$(studentId)).data;
-      return isAuthenticated() && request.auth.uid == student.linkedTeacherId;
+      return isAuthenticated() && (request.auth.uid == student.linkedTeacherId || request.auth.uid in student.linkedTeacherIds);
     }
 
     function isValidUser(data) {

@@ -141,6 +141,7 @@ export default function QuizView() {
           quizTitle: quiz.title,
           score,
           total: quiz.questions.length,
+          userAnswers, // Save answers to db
           completedAt: serverTimestamp()
         });
       }

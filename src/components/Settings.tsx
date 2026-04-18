@@ -32,17 +32,24 @@ export default function Settings({ profile, setProfile, onClose }: SettingsProps
     if (!profile.uid) return;
     setDeleting(true);
     try {
+      if (auth.currentUser) {
+         await auth.currentUser.delete();
+      }
       // Delete user profile from Firestore
       await deleteDoc(doc(db, 'users', profile.uid));
       
-      // Note: We don't delete Auth account here because it requires re-authentication 
-      // often in Firebase. We just sign out and remove their data.
-      await signOut(auth);
       showToast('تم حذف الحساب والبيانات بنجاح');
       window.location.reload();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Delete failed", error);
-      showToast('فشل في حذف الحساب', 'error');
+      if (error.code === 'auth/requires-recent-login') {
+         showToast('يرجى تسجيل الخروج ثم تسجيل الدخول مرة أخرى لحذف الحساب لأسباب أمنية.', 'error');
+         setTimeout(() => {
+             signOut(auth).then(() => window.location.reload());
+         }, 3000);
+      } else {
+        showToast('فشل في حذف الحساب', 'error');
+      }
     } finally {
       setDeleting(false);
     }
@@ -167,7 +174,7 @@ export default function Settings({ profile, setProfile, onClose }: SettingsProps
                 <AlertTriangle className="w-8 h-8" />
               </div>
               <h3 className="text-xl font-black mb-2">حذف الحساب؟</h3>
-              <p className="text-slate-500 mb-8 font-medium">سيتم حذف جميع بياناتك وملخصاتك واختباراتك بشكل نهائي. لا يمكن التراجع عن هذا الإجراء.</p>
+              <p className="text-slate-500 mb-8 font-medium">سيتم حذف حسابك وبياناتك نهائياً. قد يطلب منك تسجيل الدخول مجدداً لتأكيد هويتك.</p>
               
               <div className="flex flex-col gap-2">
                 <button 

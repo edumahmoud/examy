@@ -7,7 +7,8 @@ import {
   GraduationCap,
   LayoutDashboard,
   FileText,
-  TrendingUp
+  TrendingUp,
+  BookOpen
 } from 'lucide-react';
 import { auth, signOut } from '../firebase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -35,6 +36,7 @@ export default function Sidebar({ activeSection, setActiveSection, role, isOpen,
     { id: 'students', label: 'الطلاب', icon: <Users className="w-5 h-5" /> },
     { id: 'quizzes', label: 'الاختبارات', icon: <ClipboardList className="w-5 h-5" /> },
     { id: 'analytics', label: 'التقارير والإحصائيات', icon: <TrendingUp className="w-5 h-5" /> },
+    { id: 'subjects', label: 'المواد الدراسية', icon: <BookOpen className="w-5 h-5" /> },
     { id: 'settings', label: 'الإعدادات', icon: <SettingsIcon className="w-5 h-5" /> },
   ];
 
@@ -42,6 +44,8 @@ export default function Sidebar({ activeSection, setActiveSection, role, isOpen,
     { id: 'dashboard', label: 'لوحة التحكم', icon: <LayoutDashboard className="w-5 h-5" /> },
     { id: 'summaries', label: 'الملخصات', icon: <FileText className="w-5 h-5" /> },
     { id: 'quizzes', label: 'الاختبارات', icon: <ClipboardList className="w-5 h-5" /> },
+    { id: 'teachers', label: 'المعلمون', icon: <Users className="w-5 h-5" /> },
+    { id: 'subjects', label: 'المواد الدراسية', icon: <BookOpen className="w-5 h-5" /> },
     { id: 'settings', label: 'الإعدادات', icon: <SettingsIcon className="w-5 h-5" /> },
   ];
 

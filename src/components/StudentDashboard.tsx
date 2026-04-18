@@ -77,11 +77,18 @@ export default function StudentDashboard({ profile, setProfile }: { profile: Use
       
       if (!snap.empty) {
         const teacherDoc = snap.docs[0];
-        await updateDoc(doc(db, 'users', profile.uid), {
-          linkedTeacherId: teacherDoc.id
-        });
+        const prevLinkedTeacherIds = profile.linkedTeacherIds || [];
+        if (!prevLinkedTeacherIds.includes(teacherDoc.id)) {
+            await updateDoc(doc(db, 'users', profile.uid), {
+             linkedTeacherId: teacherDoc.id, // For backwards compatibility
+             linkedTeacherIds: [...prevLinkedTeacherIds, teacherDoc.id]
+            });
+            showToast('تم الربط بالمعلم بنجاح');
+            setProfile({...profile, linkedTeacherId: teacherDoc.id, linkedTeacherIds: [...prevLinkedTeacherIds, teacherDoc.id ]})
+        } else {
+             showToast('أنت مرتبط بهذا المعلم بالفعل');
+        }
         setIsLinkModalOpen(false);
-        showToast('تم الربط بالمعلم بنجاح');
       } else {
         showToast('كود المعلم غير صحيح', 'error');
       }
@@ -287,6 +294,57 @@ export default function StudentDashboard({ profile, setProfile }: { profile: Use
             </div>
           </div>
         );
+      case 'teachers':
+          return (
+             <div className="space-y-6 text-right">
+                <div className="flex justify-between items-center mb-10">
+                  <h2 className="text-2xl font-black text-slate-900 underline decoration-indigo-200 decoration-8 underline-offset-4 tracking-tight">المعلمون</h2>
+                  <button 
+                    onClick={() => setIsLinkModalOpen(true)}
+                    className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black flex items-center gap-3 hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100"
+                  >
+                    <Plus className="w-6 h-6" />
+                    ربط معلم جديد
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                   {profile.linkedTeacherIds && profile.linkedTeacherIds.map((tid, i) => (
+                      <div key={i} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center gap-4">
+                           <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center">
+                              <Users className="w-7 h-7" />
+                           </div>
+                           <div>
+                              <div className="font-bold text-slate-900">معلم مرتبط</div>
+                              <div className="text-xs text-slate-400 font-mono mt-1">ID: {tid.substring(0, 8)}...</div>
+                           </div>
+                      </div>
+                   ))}
+                   {(!profile.linkedTeacherIds || profile.linkedTeacherIds.length === 0) && (
+                       <div className="col-span-full py-20 bg-white rounded-[2rem] border border-dashed border-slate-200 text-center">
+                         <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                          <Users className="w-8 h-8" />
+                         </div>
+                         <p className="text-slate-400 font-bold">لست مرتبطاً بأي معلم حالياً. ادخل كود المعلم للربط.</p>
+                      </div>
+                   )}
+                </div>
+             </div>
+          );
+      case 'subjects':
+          return (
+             <div className="space-y-6 text-right">
+                 <div className="flex justify-between items-center mb-10">
+                  <h2 className="text-2xl font-black text-slate-900 underline decoration-amber-200 decoration-8 underline-offset-4 tracking-tight">المواد الدراسية</h2>
+                 </div>
+                 <div className="col-span-full py-20 bg-white rounded-[2rem] border border-dashed border-slate-200 text-center">
+                    <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                     <FileText className="w-8 h-8" />
+                    </div>
+                    <p className="text-slate-400 font-bold">لا توجد مواد دراسية مضافة حتى الآن.</p>
+                 </div>
+             </div>
+          );
       default:
         return (
           <div className="space-y-12 text-right">
@@ -375,13 +433,15 @@ export default function StudentDashboard({ profile, setProfile }: { profile: Use
               <h1 className="text-xl md:text-2xl font-black text-slate-900">
                  {activeSection === 'dashboard' ? 'لوحة التحكم' : 
                   activeSection === 'summaries' ? 'الملخصات' : 
-                  activeSection === 'quizzes' ? 'الاختبارات' : 'الإعدادات'}
+                  activeSection === 'quizzes' ? 'الاختبارات' : 
+                  activeSection === 'teachers' ? 'المعلمون' :
+                  'الإعدادات'}
               </h1>
               <div className="flex items-center gap-2 mt-1 justify-end">
-                {profile.linkedTeacherId ? (
-                  <div className="flex items-center gap-1 text-emerald-600 text-[10px] md:text-xs font-black tracking-tight">
+                {profile.linkedTeacherIds && profile.linkedTeacherIds.length > 0 ? (
+                  <div className="flex items-center gap-1 text-emerald-600 text-[10px] md:text-xs font-black tracking-tight" onClick={() => setIsLinkModalOpen(true)}>
                     <UserCheck className="w-3.5 h-3.5" />
-                    مرتبط بمعلم
+                    مرتبط بـ {profile.linkedTeacherIds.length} معلم
                   </div>
                 ) : (
                   <button 

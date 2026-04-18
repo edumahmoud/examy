@@ -56,6 +56,7 @@ export default function TeacherDashboard({ profile, setProfile }: { profile: Use
   const [students, setStudents] = useState<any[]>([]);
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [allScores, setAllScores] = useState<any[]>([]);
+  const [allSummaries, setAllSummaries] = useState<any[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [selectedQuiz, setSelectedQuiz] = useState<any>(null);
   const [quizToDelete, setQuizToDelete] = useState<string | null>(null);
@@ -84,7 +85,7 @@ export default function TeacherDashboard({ profile, setProfile }: { profile: Use
 
   useEffect(() => {
     // Fetch students who linked to this teacher
-    const qS = query(collection(db, 'users'), where('linkedTeacherId', '==', profile.uid), where('role', '==', 'student'));
+    const qS = query(collection(db, 'users'), where('linkedTeacherIds', 'array-contains', profile.uid), where('role', '==', 'student'));
     const unsubS = onSnapshot(qS, (snap) => {
       setStudents(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
@@ -101,7 +102,12 @@ export default function TeacherDashboard({ profile, setProfile }: { profile: Use
       setAllScores(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    return () => { unsubS(); unsubQ(); unsubSc(); };
+    // Fetch summaries
+    const unsubSum = onSnapshot(collection(db, 'summaries'), (snap) => {
+      setAllSummaries(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => { unsubS(); unsubQ(); unsubSc(); unsubSum(); };
   }, [profile.uid]);
 
   const handleCreateQuiz = async () => {
@@ -197,16 +203,19 @@ export default function TeacherDashboard({ profile, setProfile }: { profile: Use
   const handleExportExcel = (quizId?: string) => {
     let scoresToExport = allScores;
     let fileName = 'إحصائيات_الأداء.xlsx';
+    let quiz: any = null;
 
     if (quizId) {
       scoresToExport = allScores.filter(s => s.quizId === quizId);
-      const quiz = quizzes.find(q => q.id === quizId);
+      quiz = quizzes.find(q => q.id === quizId);
       fileName = `تقرير_اختبار_${quiz?.title || 'مجهول'}.xlsx`;
     }
 
     const data = scoresToExport.map(score => {
       const student = students.find(s => s.id === score.studentId);
-      return {
+      const studentQuiz = quizzes.find(q => q.id === score.quizId);
+      
+      const baseData: any = {
         'اسم الطالب': student ? student.name : 'مستخدم خارجي',
         'البريد الإلكتروني': student ? student.email : '---',
         'عنوان الاختبار': score.quizTitle,
@@ -217,12 +226,56 @@ export default function TeacherDashboard({ profile, setProfile }: { profile: Use
           ? new Date(score.completedAt.seconds * 1000).toLocaleString('ar-EG') 
           : '---'
       };
+
+      if (studentQuiz && score.userAnswers) {
+          studentQuiz.questions.forEach((q: any, i: number) => {
+              const uA = score.userAnswers.find((ua: any) => ua.questionIndex === i);
+              baseData[`سؤال ${i + 1} (${q.type})`] = q.question;
+              if (uA) {
+                  baseData[`إجابة الطالب س${i + 1}`] = typeof uA.answer === 'object' ? JSON.stringify(uA.answer) : uA.answer;
+                  baseData[`نتيجة س${i + 1}`] = uA.isCorrect ? 'صحيحة' : 'خاطئة';
+              } else {
+                   baseData[`إجابة الطالب س${i + 1}`] = '---';
+                   baseData[`نتيجة س${i + 1}`] = '---';
+              }
+          });
+      }
+
+      return baseData;
     });
 
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'النتائج');
     XLSX.writeFile(workbook, fileName);
+  };
+
+  const handleExportSummariesExcel = () => {
+    // Filter summaries to only include those created by students linked to this teacher
+    const linkedStudentIds = students.map(s => s.id);
+    const studentSummaries = allSummaries.filter(summary => linkedStudentIds.includes(summary.userId));
+
+    if (studentSummaries.length === 0) {
+      showToast('لا توجد ملخصات متاحة للتصدير', 'error');
+      return;
+    }
+
+    const data = studentSummaries.map(summary => {
+      const student = students.find(s => s.id === summary.userId);
+      return {
+        'اسم الطالب': student ? student.name : 'مستخدم خارجي',
+        'عنوان الملخص': summary.title || 'بدون عنوان',
+        'محتوى الملخص': summary.summaryContent || '---',
+        'تاريخ الإنشاء': summary.createdAt?.seconds 
+          ? new Date(summary.createdAt.seconds * 1000).toLocaleString('ar-EG') 
+          : '---'
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'الملخصات');
+    XLSX.writeFile(workbook, 'ملخصات_الطلاب.xlsx');
   };
 
   if (activeSection === 'settings') {
@@ -256,17 +309,26 @@ export default function TeacherDashboard({ profile, setProfile }: { profile: Use
       case 'students':
         return (
           <div className="space-y-6 text-right">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
               <h2 className="text-2xl font-black text-slate-900 underline decoration-indigo-200 decoration-8 underline-offset-4">قائمة الطلاب</h2>
-              <div className="bg-white p-2 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-2">
-                <Search className="w-5 h-5 text-slate-400 mr-2" />
-                <input 
-                  type="text" 
-                  placeholder="ابحث عن طالب..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-transparent outline-none w-64 font-medium"
-                />
+              <div className="flex gap-4">
+                <button 
+                  onClick={handleExportSummariesExcel}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-2xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition-all shadow-md"
+                >
+                  <Download className="w-5 h-5" />
+                  تصدير الملخصات (Excel)
+                </button>
+                <div className="bg-white p-2 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-2">
+                  <Search className="w-5 h-5 text-slate-400 mr-2" />
+                  <input 
+                    type="text" 
+                    placeholder="ابحث عن طالب..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="bg-transparent outline-none w-64 font-medium"
+                  />
+                </div>
               </div>
             </div>
             

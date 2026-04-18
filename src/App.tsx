@@ -51,8 +51,10 @@ export interface UserProfile {
   email: string;
   role: 'student' | 'teacher';
   teacherCode?: string;
-  linkedTeacherId?: string;
+  linkedTeacherId?: string; // Kept for backwards compatibility
+  linkedTeacherIds?: string[];
 }
+
 
 export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
