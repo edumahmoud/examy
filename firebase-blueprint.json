@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile for students and teachers",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "teacher"] },
+        "teacherCode": { "type": "string", "description": "Unique code for teachers to give to students" },
+        "linkedTeacherId": { "type": "string", "description": "ID of the teacher the student is linked to" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Summary": {
+      "title": "Summary",
+      "description": "AI generated summary of a document",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "originalContent": { "type": "string" },
+        "summaryContent": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "summaryContent"]
+    },
+    "Quiz": {
+      "title": "Quiz",
+      "description": "AI generated quiz based on content",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "title": { "type": "string" },
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "question": { "type": "string" },
+              "options": { "type": "array", "items": { "type": "string" } },
+              "correctAnswer": { "type": "string" },
+              "type": { "type": "string", "enum": ["mcq", "true_false"] }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "questions"]
+    },
+    "Score": {
+      "title": "Score",
+      "description": "Student's score on a quiz",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "quizId": { "type": "string" },
+        "score": { "type": "number" },
+        "total": { "type": "number" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["studentId", "quizId", "score", "total"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "User profiles" },
+    "/summaries/{summaryId}": { "schema": "Summary", "description": "Document summaries" },
+    "/quizzes/{quizId}": { "schema": "Quiz", "description": "Educational quizzes" },
+    "/scores/{scoreId}": { "schema": "Score", "description": "Quiz results" }
+  }
+}

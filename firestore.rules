@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: users
+    // Fields: uid, name, email, role, inviteCode, teacherId, createdAt
+    //
+    // Collection: summaries
+    // Fields: id, userId, title, originalContent, summaryContent, createdAt
+    //
+    // Collection: quizzes
+    // Fields: id, userId, teacherId, title, questions, createdAt
+    //
+    // Collection: scores
+    // Fields: id, studentId, quizId, score, total, completedAt
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher' ||
+         (request.auth.token.email == "mahmoud.ramadan.korany@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isTeacherOf(studentId) {
+      let student = get(/databases/$(database)/documents/users/$(studentId)).data;
+      return isAuthenticated() && request.auth.uid == student.linkedTeacherId;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'role']) &&
+             data.uid is string && data.name is string && data.email is string &&
+             data.role in ['student', 'teacher'];
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+    }
+
+    match /summaries/{summaryId} {
+      allow read: if isAuthenticated() && (isDocOwner() || isTeacherOf(resource.data.userId) || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && isDocOwner();
+      allow delete: if isAuthenticated() && isDocOwner();
+    }
+
+    match /quizzes/{quizId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    match /scores/{scoreId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.studentId || 
+        request.auth.uid == resource.data.teacherId || 
+        isTeacherOf(resource.data.studentId) || 
+        isAdmin()
+      );
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.teacherId || isAdmin());
+    }
+  }
+}
